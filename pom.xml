@@ -13,20 +13,13 @@
 	<groupId>com.google.gerrit</groupId>
 	<artifactId>gwtjsonrpc</artifactId>
 	<packaging>jar</packaging>
-	<version>1.13-SNAPSHOT</version>
+	<version>1.14-SNAPSHOT</version>
 	<name>gwtjsonrpc</name>
 	<description>JSON-RPC for Google Web Toolkit (GWT)</description>
 	<url>https://gerrit.googlesource.com/gwtjsonrpc</url>
-
 	<prerequisites>
 		<maven>3.0</maven>
 	</prerequisites>
-
-	<scm>
-		<url>https://gerrit.googlesource.com/gwtjsonrpc</url>
-		<connection>https://gerrit.googlesource.com/gwtjsonrpc</connection>
-	</scm>
-
 	<mailingLists>
 		<mailingList>
 			<name>repo-discuss mailing list</name>
@@ -351,20 +344,6 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>commons-codec</groupId>
-			<artifactId>commons-codec</artifactId>
-			<version>1.4</version>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>com.google.code.gson</groupId>
-			<artifactId>gson</artifactId>
-			<version>2.8.5</version>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.12</version>
@@ -385,13 +364,6 @@
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
-
-	<repositories>
-		<repository>
-			<id>gson</id>
-			<url>http://google-gson.googlecode.com/svn/mavenrepo</url>
-		</repository>
-	</repositories>
 
 	<distributionManagement>
 		<repository>
