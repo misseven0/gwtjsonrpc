@@ -1,0 +1,245 @@
+NOTE: This project is not actively maintained. If you are interested in using
+it, or if you want to volunteer to take over as maintainer, contact
+repo-discuss@googlegroups.com.
+
+
+
+JSON-RPC for Google Web Toolkit (GWT)
+-------------------------------------
+
+The implementation is as close to the JSON-RPC 1.1 working draft[1]
+as possible, while retaining a simple code base in both the GWT
+client and the Java based server.
+
+To use this module, build lib/gwtjsonrpc.jar (type "make"), place
+the JAR into your classpath and inherit the module in your gwt.xml:
+
+  <inherits name='com.google.gwtjsonrpc.GWTJSONRPC'/>
+
+Java based JSON services should extend JsonServlet and directly
+implement the service interface.  You will also need to include
+lib/gson.jar and lib/commons-codec.jar in the server's CLASSPATH.
+
+[1] http://json-rpc.org/wd/JSON-RPC-1-1-WD-20060807.html
+
+Services may be implemented in any language that supports JSON-RPC
+1.1, including Python, PHP, Perl, etc.  This package includes an
+example Java based server to make development easier in a pure
+Java application.
+
+
+Differences from JSON-RPC 1.1
+-----------------------------
+
+Only positional parameters are supported.  Within a request the
+'params' member must be missing, or must be a JSON array of the
+positional parameters.
+
+Only Java-style method names are supported.  A method name must
+conform to ^[a-zA-Z_$][a-zA-Z_$0-9]*$ and thus any of the standard
+"system.*" methods (e.g. "system.describe") is not supported.
+
+Call approximation is not supported.  The 'params' member must
+*exactly* match the declared parameters of the method being called.
+
+Error codes sent by the Java server are always 999 as the JSON RPC
+specification does not call out specific errors.
+
+GET requests must specify the method name in the 'method' request
+parameter, and the method parameters in 'param0' .. 'paramN'.
+
+The request property "xrfKey" must be populated by a value obtained
+from a prior response property, also named "xsrfKey".  The key is
+optional in a response; if it is not present then the client should
+assume the xsrfKey supplied in the request is still valid.  To get
+an initial xsrfKey issue a request, obtain the value, and send the
+same request again, but with the xsrfKey included.  The xsrfKey is
+not supported on GET requests.
+
+An optional 'callback' parameter in either the GET request parameters
+or the POSTed JSON request block can be used to obtain a JSON-in-script
+style response, facilitating the creation of "mash-ups".  The callback
+function will be invoked with the 'result' instance, or null if there
+was an error.  No error details are supplied. 
+
+
+Differences from GWT-RPC
+------------------------
+
+This package uses the standard JSON-RPC 1.1 for wire encoding,
+rather than a custom object serialization standard.
+
+Benefits:
+
+- Clients are not tied to GWT:
+
+  Clients may be written in any language that has a JSON parser
+  library available.  Objects are proper JSON objects with field
+  names as declared in the Java classes being serialized.
+
+- Servers are not tied to GWT:
+
+  Servers may be written in any language, as the only requirement
+  is that the server can create a properly formatted JSON string
+  with the expected field names.  If the Java field names are easily
+  recognized by a "subject matter expert" (or are at least documented
+  in the Java class definition) it is easy to implement a server.
+
+- Automatic XSRF (cross-site request forgery) protection:
+
+  When using the Java based server implementation in this package
+  automatic XSRF protection is enabled for every RPC.
+
+- Only one interface must be declared:
+
+  The Java server implementation implements the "async" variant of the
+  service interface and calls the AsyncCallback to provide its response.
+  This permits the Java server to (in some cases) also be compiled into
+  the client to directly implement the interface, such as for an offline
+  Google Gears/HTML 5 mode.
+
+- Automatic JSON callback support:
+
+  Managing JSON callbacks, including conversion to Java objects, is easier. 
+
+Drawbacks:
+
+- Object field names are exposed verbatim on the wire:
+
+  GWT-RPC protects the field names by not including them in the
+  JSON output.  If you are using GWT to obfuscate your JavaScript
+  and hide intellectual property, this package isn't for you.
+
+- Slightly larger object transfers:
+
+  GWT-RPC recognizes fields by the position they appear in the JSON
+  parse tree (the entire stream is encoded as one giant JSON array).
+  This package includes field names in every object instance, as that
+  is required by the JSON format.  The resulting string to be sent in
+  either direction is larger.  This increase in size may be negated
+  by the automatic "gzip" encoding, if the browser supports it.
+
+- Exceptions are not "thrown" to the client:
+
+  GWT-RPC supports declared exceptions using two interfaces; this
+  package sends only the exception message back to the client
+  and does not support throwing checked exceptions from service
+  implementation methods.
+
+- Method overloading is not supported:
+
+  Only one method of each name can be declared in the interface.
+  Thus "void foo(int a)" and "void foo(String a)" cannot be used.
+  A simple (but annoying) work around is to add a unique suffix to
+  each method name.
+
+
+Other Features
+--------------
+
+- Separate servlet vs. service implementation classes:
+
+  The service implementation can be implemented in a plain old Java
+  object, and be constructed in a JsonServlet's createServiceHandle()
+  method override.
+
+  This strategy permits the service implementation to be complied as part of
+  the GWT client side code for an offline mode.  As the service implementation
+  implements the async interface directly an instance can be used anywhere the
+  async interface is used.
+
+- Selectable unique user string:
+
+  The string used to tie the XSRF token to a specific user can be set
+  by overriding JsonServlet's createActiveCall(), returning a custom
+  subclass of the ActiveCall object.  Within the ActiveCall subclass
+  override getUser().
+
+  This strategy was used because if you need to supply a custom user
+  string you probably need that (and more) data in your own service
+  implementations.  Extending ActiveCall permits caching data into a
+  per-request instance, speeding up multiple lookups.
+
+- Configurable token encryption key, timeout:
+
+  The token encryption key and/or timeout can be changed by overriding
+  JsonServlet's createXsrfSignedToken() method.
+
+- XSRF protection disabled on a per-method basis:
+
+  Methods which do not require XSRF protection (for example read-only methods
+  exposing public information) can be marked @AllowCrossSiteRequest to disable
+  the automatic XSRF protection check code path in JsonServlet.
+
+- RpcStatusListener to show "Loading ..." widgets:
+
+  Applications can implement RpcStatusListener and register it to get updates
+  during all RPC events.  This can be useful to automatically show/hide some
+  sort of "Loading ..." or "Busy ..." widget when an RPC is taking place.  UI
+  is left to the application.
+
+- JSON callbacks:
+
+  Declaring a service method to return CallbackHandle allows the developer to
+  construct a unique JavaScript function to obtain results from a remote JSON
+  service, and automatically convert the JSON object into a Java object, just
+  like any other RPC method result.  Encoding parameters is left as an exercise
+  to the reader. 
+
+
+Example
+-------
+
+Define the service:
+
+  import com.google.gwtjsonrpc.common.AsyncCallback;
+  import com.google.gwtjsonrpc.client.RemoteJsonService;
+
+  public interface StringService extends RemoteJsonService {
+    public void append(String a, String b, AsyncCallback<String> ac);
+  }
+
+Configure GWTJSONRPC in Application.gwt.xml:
+
+  <inherits name='com.google.gwtjsonrpc.GWTJSONRPC'/>
+  <servlet path='/StringService'
+           class='example.StringServiceImpl'/>
+
+Implement the service in Java as a servlet:
+
+  import com.google.gwtjsonrpc.common.AsyncCallback;
+  import com.google.gwtjsonrpc.server.JsonServlet;
+
+  public StringServiceImpl extends JsonServlet
+    implements StringService
+  {
+    public void append(String a, String b, AsyncCallback<String> ac)
+    {
+      if (a != null && b != null)
+        ac.onSuccess(a + b);
+      else
+        ac.onFailure(new IllegalArgumentException("Null input"));
+    }
+  }
+
+Create the service in the browser:
+
+  StringService cs = GWT.create(StringService.class);
+  ((ServiceDefTarget) cs).setServiceEntryPoint(
+    GWT.getModuleBaseURL() + "StringService");
+
+or alternatively use the bind utility:
+
+  StringService cs = GWT.create(StringService.class);
+  JsonUtil.bind(cs, "StringService");
+
+and finally invoke the service:
+
+  cs.append("foo", "bar", new AsyncCallback<String>() {
+    public void onSuccess(String result) {
+      GWT.log("append = " + result, null);
+    }
+    public void onFailure(Throwable why) {
+      GWT.log("append failure", why);
+    }
+  });
