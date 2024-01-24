@@ -22,35 +22,34 @@ import com.google.gwtjsonrpc.common.AsyncCallback;
 import com.google.gwtjsonrpc.common.JsonConstants;
 
 /** JsonCall implementation for JsonRPC version 2.0 over HTTP POST */
-public class JsonCall20HttpGet<T> extends JsonCall20<T> {
-  private String encodedRequestParams;
+public class JsonCall20HttpGet<T> extends JsonCall20<T>
+{
+	private String encodedRequestParams;
 
-  public JsonCall20HttpGet(
-      AbstractJsonProxy abstractJsonProxy,
-      String methodName,
-      String requestParams,
-      ResultDeserializer<T> resultDeserializer,
-      AsyncCallback<T> callback) {
-    super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
-    encodedRequestParams = URL.encodeQueryString(encodeBase64(requestParams));
-  }
+	public JsonCall20HttpGet(AbstractJsonProxy abstractJsonProxy, String methodName, String requestParams,
+			ResultDeserializer<T> resultDeserializer, AsyncCallback<T> callback)
+	{
+		super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
+		encodedRequestParams = URL.encodeQueryString(encodeBase64(requestParams));
+	}
 
-  @Override
-  protected void send() {
-    requestId = ++lastRequestId;
-    final StringBuilder url = new StringBuilder(proxy.getServiceEntryPoint());
-    url.append("?jsonrpc=2.0&method=").append(methodName);
-    url.append("&params=").append(encodedRequestParams);
-    url.append("&id=").append(requestId);
+	@Override
+	protected void send()
+	{
+		requestId = ++lastRequestId;
+		final StringBuilder url = new StringBuilder(proxy.getServiceEntryPoint());
+		url.append("?jsonrpc=2.0&method=").append(methodName);
+		url.append("&params=").append(encodedRequestParams);
+		url.append("&id=").append(requestId);
 
-    final RequestBuilder rb;
-    rb = new RequestBuilder(RequestBuilder.GET, url.toString());
-    rb.setHeader("Content-Type", JsonConstants.JSONRPC20_REQ_CT);
-    rb.setHeader("Accept", JsonConstants.JSONRPC20_ACCEPT_CTS);
-    rb.setCallback(this);
+		final RequestBuilder rb;
+		rb = new RequestBuilder(RequestBuilder.GET, url.toString());
+		rb.setHeader("Content-Type", JsonConstants.JSONRPC20_REQ_CT);
+		rb.setHeader("Accept", JsonConstants.JSONRPC20_ACCEPT_CTS);
+		rb.setCallback(this);
 
-    send(rb);
-  }
+		send(rb);
+	}
 
   /**
    * Javascript base64 encoding implementation from.

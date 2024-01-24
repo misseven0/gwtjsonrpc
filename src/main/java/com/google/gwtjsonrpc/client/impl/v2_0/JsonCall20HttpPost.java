@@ -22,39 +22,39 @@ import com.google.gwtjsonrpc.common.AsyncCallback;
 import com.google.gwtjsonrpc.common.JsonConstants;
 
 /** JsonCall implementation for JsonRPC version 2.0 over HTTP POST */
-public class JsonCall20HttpPost<T> extends JsonCall20<T> {
-  public JsonCall20HttpPost(
-      AbstractJsonProxy abstractJsonProxy,
-      String methodName,
-      String requestParams,
-      ResultDeserializer<T> resultDeserializer,
-      AsyncCallback<T> callback) {
-    super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
-  }
+public class JsonCall20HttpPost<T> extends JsonCall20<T>
+{
+	public JsonCall20HttpPost(AbstractJsonProxy abstractJsonProxy, String methodName, String requestParams,
+			ResultDeserializer<T> resultDeserializer, AsyncCallback<T> callback)
+	{
+		super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
+	}
 
-  @Override
-  protected void send() {
-    requestId = ++lastRequestId;
-    final StringBuilder body = new StringBuilder();
-    body.append("{\"jsonrpc\":\"2.0\",\"method\":\"");
-    body.append(methodName);
-    body.append("\",\"params\":");
-    body.append(requestParams);
-    body.append(",\"id\":").append(requestId);
-    final String xsrfKey = proxy.getXsrfManager().getToken(proxy);
-    if (xsrfKey != null) {
-      body.append(",\"xsrfKey\":");
-      body.append(JsonUtils.escapeValue(xsrfKey));
-    }
-    body.append("}");
+	@Override
+	protected void send()
+	{
+		requestId = ++lastRequestId;
+		final StringBuilder body = new StringBuilder();
+		body.append("{\"jsonrpc\":\"2.0\",\"method\":\"");
+		body.append(methodName);
+		body.append("\",\"params\":");
+		body.append(requestParams);
+		body.append(",\"id\":").append(requestId);
+		final String xsrfKey = proxy.getXsrfManager().getToken(proxy);
+		if (xsrfKey != null)
+		{
+			body.append(",\"xsrfKey\":");
+			body.append(JsonUtils.escapeValue(xsrfKey));
+		}
+		body.append("}");
 
-    final RequestBuilder rb;
-    rb = new RequestBuilder(RequestBuilder.POST, proxy.getServiceEntryPoint());
-    rb.setHeader("Content-Type", JsonConstants.JSONRPC20_REQ_CT);
-    rb.setHeader("Accept", JsonConstants.JSONRPC20_ACCEPT_CTS);
-    rb.setCallback(this);
-    rb.setRequestData(body.toString());
+		final RequestBuilder rb;
+		rb = new RequestBuilder(RequestBuilder.POST, proxy.getServiceEntryPoint());
+		rb.setHeader("Content-Type", JsonConstants.JSONRPC20_REQ_CT);
+		rb.setHeader("Accept", JsonConstants.JSONRPC20_ACCEPT_CTS);
+		rb.setCallback(this);
+		rb.setRequestData(body.toString());
 
-    send(rb);
-  }
+		send(rb);
+	}
 }

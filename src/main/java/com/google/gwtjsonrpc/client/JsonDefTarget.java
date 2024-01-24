@@ -17,8 +17,9 @@ package com.google.gwtjsonrpc.client;
 import com.google.gwt.user.client.rpc.ServiceDefTarget;
 
 /** Extension of {@code ServiceDefTarget} with an active {@link XsrfManager}. */
-public interface JsonDefTarget extends ServiceDefTarget {
-  public XsrfManager getXsrfManager();
+public interface JsonDefTarget extends ServiceDefTarget
+{
+	public XsrfManager getXsrfManager();
 
-  public void setXsrfManager(XsrfManager m);
+	public void setXsrfManager(XsrfManager m);
 }

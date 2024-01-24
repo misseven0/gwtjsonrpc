@@ -32,133 +32,157 @@ import com.google.gwtjsonrpc.common.AsyncCallback;
 import com.google.gwtjsonrpc.common.JsonConstants;
 
 /** JsonCall implementation for JsonRPC version 1.1 over HTTP POST */
-public class JsonCall11HttpPost<T> extends JsonCall<T> {
+public class JsonCall11HttpPost<T> extends JsonCall<T>
+{
+	public JsonCall11HttpPost(AbstractJsonProxy abstractJsonProxy, String methodName, String requestParams,
+			ResultDeserializer<T> resultDeserializer, AsyncCallback<T> callback)
+	{
+		super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
+	}
 
-  public JsonCall11HttpPost(
-      AbstractJsonProxy abstractJsonProxy,
-      String methodName,
-      String requestParams,
-      ResultDeserializer<T> resultDeserializer,
-      AsyncCallback<T> callback) {
-    super(abstractJsonProxy, methodName, requestParams, resultDeserializer, callback);
-  }
+	@Override
+	protected void send()
+	{
+		final StringBuilder body = new StringBuilder();
+		body.append("{\"version\":\"1.1\",\"method\":\"");
+		body.append(methodName);
+		body.append("\",\"params\":");
+		body.append(requestParams);
+		final String xsrfKey = proxy.getXsrfManager().getToken(proxy);
+		if (xsrfKey != null)
+		{
+			body.append(",\"xsrfKey\":");
+			body.append(JsonUtils.escapeValue(xsrfKey));
+		}
+		body.append("}");
 
-  @Override
-  protected void send() {
-    final StringBuilder body = new StringBuilder();
-    body.append("{\"version\":\"1.1\",\"method\":\"");
-    body.append(methodName);
-    body.append("\",\"params\":");
-    body.append(requestParams);
-    final String xsrfKey = proxy.getXsrfManager().getToken(proxy);
-    if (xsrfKey != null) {
-      body.append(",\"xsrfKey\":");
-      body.append(JsonUtils.escapeValue(xsrfKey));
-    }
-    body.append("}");
+		final RequestBuilder rb;
+		rb = new RequestBuilder(RequestBuilder.POST, proxy.getServiceEntryPoint());
+		rb.setHeader("Content-Type", JsonConstants.JSON_REQ_CT);
+		rb.setHeader("Accept", JsonConstants.JSON_TYPE);
+		rb.setCallback(this);
+		rb.setRequestData(body.toString());
 
-    final RequestBuilder rb;
-    rb = new RequestBuilder(RequestBuilder.POST, proxy.getServiceEntryPoint());
-    rb.setHeader("Content-Type", JsonConstants.JSON_REQ_CT);
-    rb.setHeader("Accept", JsonConstants.JSON_TYPE);
-    rb.setCallback(this);
-    rb.setRequestData(body.toString());
+		send(rb);
+	}
 
-    send(rb);
-  }
+	@Override
+	public void onResponseReceived(final Request req, final Response rsp)
+	{
+		final int sc = rsp.getStatusCode();
+		if (isJsonBody(rsp))
+		{
+			final RpcResult r;
+			try
+			{
+				r = parse(jsonParser, rsp.getText());
+			} catch (RuntimeException e)
+			{
+				RpcCompleteEvent.fire(this);
+				callback.onFailure(new InvocationException("Bad JSON response: " + e));
+				return;
+			}
 
-  @Override
-  public void onResponseReceived(final Request req, final Response rsp) {
-    final int sc = rsp.getStatusCode();
-    if (isJsonBody(rsp)) {
-      final RpcResult r;
-      try {
-        r = parse(jsonParser, rsp.getText());
-      } catch (RuntimeException e) {
-        RpcCompleteEvent.fire(this);
-        callback.onFailure(new InvocationException("Bad JSON response: " + e));
-        return;
-      }
+			if (r.xsrfKey() != null)
+			{
+				proxy.getXsrfManager().setToken(proxy, r.xsrfKey());
+			}
 
-      if (r.xsrfKey() != null) {
-        proxy.getXsrfManager().setToken(proxy, r.xsrfKey());
-      }
+			if (r.error() != null)
+			{
+				final String errmsg = r.error().message();
+				if (JsonConstants.ERROR_INVALID_XSRF.equals(errmsg))
+				{
+					if (attempts < 2)
+					{
+						// The XSRF cookie was invalidated (or didn't exist) and
+						// the
+						// service demands we have one in place to make calls to
+						// it.
+						// A new token was returned to us, so start the request
+						// over.
+						//
+						send();
+					} else
+					{
+						RpcCompleteEvent.fire(this);
+						callback.onFailure(new InvocationException(errmsg));
+					}
+				} else
+				{
+					RpcCompleteEvent.fire(this);
+					callback.onFailure(new RemoteJsonException(errmsg, r.error().code(), new JSONObject(r.error()).get("error")));
+				}
+				return;
+			}
 
-      if (r.error() != null) {
-        final String errmsg = r.error().message();
-        if (JsonConstants.ERROR_INVALID_XSRF.equals(errmsg)) {
-          if (attempts < 2) {
-            // The XSRF cookie was invalidated (or didn't exist) and the
-            // service demands we have one in place to make calls to it.
-            // A new token was returned to us, so start the request over.
-            //
-            send();
-          } else {
-            RpcCompleteEvent.fire(this);
-            callback.onFailure(new InvocationException(errmsg));
-          }
-        } else {
-          RpcCompleteEvent.fire(this);
-          callback.onFailure(
-              new RemoteJsonException(
-                  errmsg, r.error().code(), new JSONObject(r.error()).get("error")));
-        }
-        return;
-      }
+			if (sc == Response.SC_OK)
+			{
+				RpcCompleteEvent.fire(this);
+				JsonUtil.invoke(resultDeserializer, callback, r);
+				return;
+			}
+		}
 
-      if (sc == Response.SC_OK) {
-        RpcCompleteEvent.fire(this);
-        JsonUtil.invoke(resultDeserializer, callback, r);
-        return;
-      }
-    }
+		if (sc == Response.SC_OK)
+		{
+			RpcCompleteEvent.fire(this);
+			callback.onFailure(new InvocationException("No JSON response"));
+		} else
+		{
+			RpcCompleteEvent.fire(this);
+			callback.onFailure(new StatusCodeException(sc, rsp.getStatusText()));
+		}
+	}
 
-    if (sc == Response.SC_OK) {
-      RpcCompleteEvent.fire(this);
-      callback.onFailure(new InvocationException("No JSON response"));
-    } else {
-      RpcCompleteEvent.fire(this);
-      callback.onFailure(new StatusCodeException(sc, rsp.getStatusText()));
-    }
-  }
+	private static boolean isJsonBody(final Response rsp)
+	{
+		String type = rsp.getHeader("Content-Type");
+		if (type == null)
+		{
+			return false;
+		}
+		int semi = type.indexOf(';');
+		if (semi >= 0)
+		{
+			type = type.substring(0, semi).trim();
+		}
+		return JsonConstants.JSON_TYPE.equals(type);
+	}
 
-  private static boolean isJsonBody(final Response rsp) {
-    String type = rsp.getHeader("Content-Type");
-    if (type == null) {
-      return false;
-    }
-    int semi = type.indexOf(';');
-    if (semi >= 0) {
-      type = type.substring(0, semi).trim();
-    }
-    return JsonConstants.JSON_TYPE.equals(type);
-  }
+	/**
+	 * Call a JSON parser javascript function to parse an encoded JSON string.
+	 *
+	 * @param parser
+	 *            a javascript function
+	 * @param json
+	 *            encoded JSON text
+	 * @return the parsed data
+	 * @see #jsonParser
+	 */
+	private static final native RpcResult parse(JavaScriptObject parserFunction, String json) /*-{
+		return parserFunction(json);
+	}-*/;
 
-  /**
-   * Call a JSON parser javascript function to parse an encoded JSON string.
-   *
-   * @param parser a javascript function
-   * @param json encoded JSON text
-   * @return the parsed data
-   * @see #jsonParser
-   */
-  private static final native RpcResult parse(JavaScriptObject parserFunction, String json) /*-{
-    return parserFunction(json);
-  }-*/;
+	private static class RpcResult extends JavaScriptObject
+	{
+		protected RpcResult()
+		{
+		}
 
-  private static class RpcResult extends JavaScriptObject {
-    protected RpcResult() {}
+		final native RpcError error() /*-{ return this.error; }-*/;
 
-    final native RpcError error() /*-{ return this.error; }-*/;
+		final native String xsrfKey() /*-{ return this.xsrfKey; }-*/;
+	}
 
-    final native String xsrfKey() /*-{ return this.xsrfKey; }-*/;
-  }
+	private static class RpcError extends JavaScriptObject
+	{
+		protected RpcError()
+		{
+		}
 
-  private static class RpcError extends JavaScriptObject {
-    protected RpcError() {}
+		final native String message() /*-{ return this.message; }-*/;
 
-    final native String message() /*-{ return this.message; }-*/;
-
-    final native int code() /*-{ return this.code; }-*/;
-  }
+		final native int code() /*-{ return this.code; }-*/;
+	}
 }
